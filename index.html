@@ -183,20 +183,51 @@
         <div class="section">
           <h2>📤 Upload File</h2>
           <div class="form-group">
-            <label for="filename">Filename:</label>
+            <label for="fileInput">Choose File or Drag & Drop:</label>
+            <div
+              id="dropZone"
+              style="
+                width: 100%;
+                min-height: 120px;
+                border: 3px dashed #e1e5e9;
+                border-radius: 12px;
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                justify-content: center;
+                cursor: pointer;
+                transition: all 0.3s ease;
+                background: #f8f9fa;
+              "
+              ondrop="handleDrop(event)"
+              ondragover="handleDragOver(event)"
+              ondragenter="handleDragEnter(event)"
+              ondragleave="handleDragLeave(event)"
+              onclick="document.getElementById('fileInput').click()"
+            >
+              <div style="text-align: center; color: #6c757d">
+                <div style="font-size: 24px; margin-bottom: 8px">📁</div>
+                <div>Click to select files or drag & drop here</div>
+                <div style="font-size: 12px; margin-top: 4px">
+                  Supports any file type
+                </div>
+              </div>
+            </div>
             <input
-              type="text"
-              id="filename"
-              placeholder="Enter filename (e.g., example.txt)"
+              type="file"
+              id="fileInput"
+              accept="*/*"
+              style="display: none"
+              onchange="handleFileSelect(event)"
             />
           </div>
           <div class="form-group">
-            <label for="fileContent">File Content:</label>
-            <textarea
-              id="fileContent"
-              rows="5"
-              placeholder="Enter file content here..."
-            ></textarea>
+            <label for="filename">Custom Filename (optional):</label>
+            <input
+              type="text"
+              id="filename"
+              placeholder="Leave empty to use original filename"
+            />
           </div>
           <button onclick="uploadFile()">Upload File</button>
           <div id="uploadStatus"></div>
@@ -219,20 +250,22 @@
       const API_BASE = window.location.origin;
 
       async function uploadFile() {
-        const filename = document.getElementById("filename").value.trim();
-        const content = document.getElementById("fileContent").value.trim();
+        const fileInput = document.getElementById("fileInput");
+        const customFilename = document.getElementById("filename").value.trim();
         const statusDiv = document.getElementById("uploadStatus");
 
-        if (!filename || !content) {
-          showStatus(
-            statusDiv,
-            "Please enter both filename and content",
-            "error"
-          );
+        if (!fileInput.files || fileInput.files.length === 0) {
+          showStatus(statusDiv, "Please select a file to upload", "error");
           return;
         }
 
+        const file = fileInput.files[0];
+        const filename = customFilename || file.name;
+
         try {
+          // Read file content as text
+          const content = await readFileAsText(file);
+
           const response = await fetch(`${API_BASE}/api/upload`, {
             method: "POST",
             headers: {
@@ -246,8 +279,9 @@
 
           if (response.ok) {
             showStatus(statusDiv, "File uploaded successfully!", "success");
+            fileInput.value = "";
             document.getElementById("filename").value = "";
-            document.getElementById("fileContent").value = "";
+            resetDropZone(); // Reset the drop zone
             loadFiles(); // Refresh the file list
           } else {
             showStatus(statusDiv, "Failed to upload file", "error");
@@ -259,6 +293,84 @@
             "error"
           );
         }
+      }
+
+      function readFileAsText(file) {
+        return new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = (e) => resolve(e.target.result);
+          reader.onerror = (e) => reject(e);
+          reader.readAsText(file);
+        });
+      }
+
+      // Drag and Drop Functions
+      function handleDragOver(e) {
+        e.preventDefault();
+        e.stopPropagation();
+      }
+
+      function handleDragEnter(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        const dropZone = document.getElementById("dropZone");
+        dropZone.style.borderColor = "#007bff";
+        dropZone.style.background = "#e3f2fd";
+      }
+
+      function handleDragLeave(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        const dropZone = document.getElementById("dropZone");
+        dropZone.style.borderColor = "#e1e5e9";
+        dropZone.style.background = "#f8f9fa";
+      }
+
+      function handleDrop(e) {
+        e.preventDefault();
+        e.stopPropagation();
+
+        const dropZone = document.getElementById("dropZone");
+        dropZone.style.borderColor = "#e1e5e9";
+        dropZone.style.background = "#f8f9fa";
+
+        const files = e.dataTransfer.files;
+        if (files.length > 0) {
+          const fileInput = document.getElementById("fileInput");
+          fileInput.files = files;
+          handleFileSelect({ target: fileInput });
+        }
+      }
+
+      function handleFileSelect(e) {
+        const file = e.target.files[0];
+        if (file) {
+          // Update the drop zone to show selected file
+          const dropZone = document.getElementById("dropZone");
+          const fileInfo = document.createElement("div");
+          fileInfo.style.textAlign = "center";
+          fileInfo.style.color = "#28a745";
+          fileInfo.innerHTML = `
+             <div style="font-size: 20px; margin-bottom: 4px;">✅</div>
+             <div><strong>${file.name}</strong></div>
+             <div style="font-size: 12px; color: #6c757d;">${(
+               file.size / 1024
+             ).toFixed(1)} KB</div>
+           `;
+          dropZone.innerHTML = "";
+          dropZone.appendChild(fileInfo);
+        }
+      }
+
+      function resetDropZone() {
+        const dropZone = document.getElementById("dropZone");
+        dropZone.innerHTML = `
+           <div style="text-align: center; color: #6c757d;">
+             <div style="font-size: 24px; margin-bottom: 8px;">📁</div>
+             <div>Click to select files or drag & drop here</div>
+             <div style="font-size: 12px; margin-top: 4px;">Supports any file type</div>
+           </div>
+         `;
       }
 
       async function loadFiles() {
@@ -306,8 +418,12 @@
 
       async function downloadFile(filename) {
         try {
+          // Ensure filename is a string
+          const cleanFilename = String(filename);
           const response = await fetch(
-            `${API_BASE}/api/download?filename=${encodeURIComponent(filename)}`
+            `${API_BASE}/api/download?filename=${encodeURIComponent(
+              cleanFilename
+            )}`
           );
           if (response.ok) {
             const content = await response.text();
@@ -317,7 +433,7 @@
             const url = window.URL.createObjectURL(blob);
             const a = document.createElement("a");
             a.href = url;
-            a.download = filename;
+            a.download = cleanFilename;
             document.body.appendChild(a);
             a.click();
             document.body.removeChild(a);
