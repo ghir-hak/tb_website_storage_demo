@@ -380,6 +380,7 @@
           const response = await fetch(`${API_BASE}/api/list`);
           if (response.ok) {
             const files = await response.json();
+            console.log("Files received from API:", files);
             displayFiles(files);
           } else {
             fileListDiv.innerHTML =
@@ -420,6 +421,7 @@
         try {
           // Ensure filename is a string
           const cleanFilename = String(filename);
+          console.log("Downloading file:", cleanFilename);
           const response = await fetch(
             `${API_BASE}/api/download?filename=${encodeURIComponent(
               cleanFilename
