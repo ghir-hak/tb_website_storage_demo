@@ -143,14 +143,6 @@
         background: #218838;
       }
 
-      .btn-delete {
-        background: #dc3545;
-      }
-
-      .btn-delete:hover {
-        background: #c82333;
-      }
-
       .status {
         margin-top: 10px;
         padding: 10px;
@@ -419,7 +411,6 @@
                     <span class="file-name">${filename}</span>
                     <div class="file-actions">
                         <button class="btn-small btn-download" onclick="downloadFile('${filename}')">Download</button>
-                        <button class="btn-small btn-delete" onclick="deleteFile('${filename}')">Delete</button>
                     </div>
                 </div>
             `
@@ -481,35 +472,6 @@
           }
         } catch (error) {
           alert("Error downloading file: " + error.message);
-        }
-      }
-
-      async function deleteFile(filename) {
-        if (!confirm(`Are you sure you want to delete "${filename}"?`)) {
-          return;
-        }
-
-        try {
-          const cleanFilename = String(filename);
-          console.log("Deleting file:", cleanFilename);
-
-          const response = await fetch(
-            `${API_BASE}/api/delete?filename=${encodeURIComponent(
-              cleanFilename
-            )}`,
-            {
-              method: "DELETE",
-            }
-          );
-
-          if (response.ok) {
-            alert("File deleted successfully!");
-            loadFiles(); // Refresh the file list
-          } else {
-            alert("Failed to delete file");
-          }
-        } catch (error) {
-          alert("Error deleting file: " + error.message);
         }
       }
 
