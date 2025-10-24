@@ -143,6 +143,14 @@
         background: #218838;
       }
 
+      .btn-delete {
+        background: #dc3545;
+      }
+
+      .btn-delete:hover {
+        background: #c82333;
+      }
+
       .status {
         margin-top: 10px;
         padding: 10px;
@@ -181,55 +189,26 @@
       <div class="content">
         <!-- Upload Section -->
         <div class="section">
-          <h2>📤 Upload File</h2>
+          <h2>📤 Upload Text File</h2>
           <div class="form-group">
-            <label for="fileInput">Choose File or Drag & Drop:</label>
-            <div
-              id="dropZone"
-              style="
-                width: 100%;
-                min-height: 120px;
-                border: 3px dashed #e1e5e9;
-                border-radius: 12px;
-                display: flex;
-                flex-direction: column;
-                align-items: center;
-                justify-content: center;
-                cursor: pointer;
-                transition: all 0.3s ease;
-                background: #f8f9fa;
-              "
-              ondrop="handleDrop(event)"
-              ondragover="handleDragOver(event)"
-              ondragenter="handleDragEnter(event)"
-              ondragleave="handleDragLeave(event)"
-              onclick="document.getElementById('fileInput').click()"
-            >
-              <div style="text-align: center; color: #6c757d">
-                <div style="font-size: 24px; margin-bottom: 8px">📁</div>
-                <div>Click to select files or drag & drop here</div>
-                <div style="font-size: 12px; margin-top: 4px">
-                  Supports any file type
-                </div>
-              </div>
-            </div>
-            <input
-              type="file"
-              id="fileInput"
-              accept="*/*"
-              style="display: none"
-              onchange="handleFileSelect(event)"
-            />
-          </div>
-          <div class="form-group">
-            <label for="filename">Custom Filename (optional):</label>
+            <label for="filename">Filename:</label>
             <input
               type="text"
               id="filename"
-              placeholder="Leave empty to use original filename"
+              placeholder="Enter filename (e.g., example.txt)"
+              required
             />
           </div>
-          <button onclick="uploadFile()">Upload File</button>
+          <div class="form-group">
+            <label for="fileContent">File Content:</label>
+            <textarea
+              id="fileContent"
+              rows="8"
+              placeholder="Enter text content here..."
+              required
+            ></textarea>
+          </div>
+          <button onclick="uploadFile()">Upload Text File</button>
           <div id="uploadStatus"></div>
         </div>
 
@@ -250,22 +229,20 @@
       const API_BASE = window.location.origin;
 
       async function uploadFile() {
-        const fileInput = document.getElementById("fileInput");
-        const customFilename = document.getElementById("filename").value.trim();
+        const filename = document.getElementById("filename").value.trim();
+        const content = document.getElementById("fileContent").value.trim();
         const statusDiv = document.getElementById("uploadStatus");
 
-        if (!fileInput.files || fileInput.files.length === 0) {
-          showStatus(statusDiv, "Please select a file to upload", "error");
+        if (!filename || !content) {
+          showStatus(
+            statusDiv,
+            "Please enter both filename and content",
+            "error"
+          );
           return;
         }
 
-        const file = fileInput.files[0];
-        const filename = customFilename || file.name;
-
         try {
-          // Read file content as text
-          const content = await readFileAsText(file);
-
           const response = await fetch(`${API_BASE}/api/upload`, {
             method: "POST",
             headers: {
@@ -278,10 +255,13 @@
           });
 
           if (response.ok) {
-            showStatus(statusDiv, "File uploaded successfully!", "success");
-            fileInput.value = "";
+            showStatus(
+              statusDiv,
+              "Text file uploaded successfully!",
+              "success"
+            );
             document.getElementById("filename").value = "";
-            resetDropZone(); // Reset the drop zone
+            document.getElementById("fileContent").value = "";
             loadFiles(); // Refresh the file list
           } else {
             showStatus(statusDiv, "Failed to upload file", "error");
@@ -295,13 +275,42 @@
         }
       }
 
-      function readFileAsText(file) {
+      function readFileAsBase64(file) {
         return new Promise((resolve, reject) => {
           const reader = new FileReader();
           reader.onload = (e) => resolve(e.target.result);
           reader.onerror = (e) => reject(e);
-          reader.readAsText(file);
+          reader.readAsDataURL(file);
         });
+      }
+
+      function getMimeType(filename) {
+        const ext = filename.toLowerCase().split(".").pop();
+        const mimeTypes = {
+          png: "image/png",
+          jpg: "image/jpeg",
+          jpeg: "image/jpeg",
+          gif: "image/gif",
+          bmp: "image/bmp",
+          webp: "image/webp",
+          svg: "image/svg+xml",
+          pdf: "application/pdf",
+          zip: "application/zip",
+          mp3: "audio/mpeg",
+          mp4: "video/mp4",
+          avi: "video/x-msvideo",
+          avi: "video/x-msvideo",
+          mov: "video/quicktime",
+          wmv: "video/x-ms-wmv",
+          flv: "video/x-flv",
+          webm: "video/webm",
+          ogg: "audio/ogg",
+          wav: "audio/wav",
+          flac: "audio/flac",
+          aac: "audio/aac",
+          m4a: "audio/mp4",
+        };
+        return mimeTypes[ext] || "application/octet-stream";
       }
 
       // Drag and Drop Functions
@@ -410,6 +419,7 @@
                     <span class="file-name">${filename}</span>
                     <div class="file-actions">
                         <button class="btn-small btn-download" onclick="downloadFile('${filename}')">Download</button>
+                        <button class="btn-small btn-delete" onclick="deleteFile('${filename}')">Delete</button>
                     </div>
                 </div>
             `
@@ -428,10 +438,36 @@
             )}`
           );
           if (response.ok) {
-            const content = await response.text();
+            // Get the content type from the response headers
+            const contentType =
+              response.headers.get("content-type") ||
+              "application/octet-stream";
 
-            // Create a blob and download
-            const blob = new Blob([content], { type: "text/plain" });
+            console.log("Download response content-type:", contentType);
+            console.log("Downloading file:", cleanFilename);
+
+            // Determine if it's a binary file based on content type
+            const isBinaryFile =
+              contentType.startsWith("image/") ||
+              contentType.startsWith("video/") ||
+              contentType.startsWith("audio/") ||
+              contentType === "application/pdf" ||
+              contentType === "application/zip" ||
+              contentType === "application/octet-stream";
+
+            console.log("Is binary file:", isBinaryFile);
+
+            let blob;
+            if (isBinaryFile) {
+              // For binary files, get as array buffer
+              const arrayBuffer = await response.arrayBuffer();
+              blob = new Blob([arrayBuffer], { type: contentType });
+            } else {
+              // For text files, get as text
+              const content = await response.text();
+              blob = new Blob([content], { type: contentType });
+            }
+
             const url = window.URL.createObjectURL(blob);
             const a = document.createElement("a");
             a.href = url;
@@ -445,6 +481,35 @@
           }
         } catch (error) {
           alert("Error downloading file: " + error.message);
+        }
+      }
+
+      async function deleteFile(filename) {
+        if (!confirm(`Are you sure you want to delete "${filename}"?`)) {
+          return;
+        }
+
+        try {
+          const cleanFilename = String(filename);
+          console.log("Deleting file:", cleanFilename);
+
+          const response = await fetch(
+            `${API_BASE}/api/delete?filename=${encodeURIComponent(
+              cleanFilename
+            )}`,
+            {
+              method: "DELETE",
+            }
+          );
+
+          if (response.ok) {
+            alert("File deleted successfully!");
+            loadFiles(); // Refresh the file list
+          } else {
+            alert("Failed to delete file");
+          }
+        } catch (error) {
+          alert("Error deleting file: " + error.message);
         }
       }
 
