@@ -174,44 +174,44 @@
   <body>
     <div class="container">
       <div class="header">
-        <h1>🚀 Taubyte File Storage</h1>
-        <p>Upload, download, and manage files using Taubyte Storage</p>
+        <h1>📝 Taubyte Pastebin</h1>
+        <p>Create, share, and manage text snippets using Taubyte Storage</p>
       </div>
 
       <div class="content">
-        <!-- Upload Section -->
+        <!-- Create Paste Section -->
         <div class="section">
-          <h2>📤 Upload Text File</h2>
+          <h2>📝 Create New Paste</h2>
           <div class="form-group">
-            <label for="filename">Filename:</label>
+            <label for="pasteTitle">Title:</label>
             <input
               type="text"
-              id="filename"
-              placeholder="Enter filename (e.g., example.txt)"
+              id="pasteTitle"
+              placeholder="Enter paste title (e.g., My Code Snippet)"
               required
             />
           </div>
           <div class="form-group">
-            <label for="fileContent">File Content:</label>
+            <label for="pasteContent">Content:</label>
             <textarea
-              id="fileContent"
-              rows="8"
-              placeholder="Enter text content here..."
+              id="pasteContent"
+              rows="12"
+              placeholder="Enter your text, code, or any content here..."
               required
             ></textarea>
           </div>
-          <button onclick="uploadFile()">Upload Text File</button>
+          <button onclick="createPaste()">Create Paste</button>
           <div id="uploadStatus"></div>
         </div>
 
-        <!-- File List Section -->
+        <!-- Pastes List Section -->
         <div class="section">
-          <h2>📁 File List</h2>
-          <button onclick="loadFiles()" style="margin-bottom: 15px">
+          <h2>📋 Recent Pastes</h2>
+          <button onclick="loadPastes()" style="margin-bottom: 15px">
             Refresh List
           </button>
-          <div id="fileList" class="file-list">
-            <div class="empty-state">No files uploaded yet</div>
+          <div id="pasteList" class="file-list">
+            <div class="empty-state">No pastes created yet</div>
           </div>
         </div>
       </div>
@@ -220,19 +220,22 @@
     <script>
       const API_BASE = window.location.origin;
 
-      async function uploadFile() {
-        const filename = document.getElementById("filename").value.trim();
-        const content = document.getElementById("fileContent").value.trim();
+      async function createPaste() {
+        const title = document.getElementById("pasteTitle").value.trim();
+        const content = document.getElementById("pasteContent").value.trim();
         const statusDiv = document.getElementById("uploadStatus");
 
-        if (!filename || !content) {
-          showStatus(
-            statusDiv,
-            "Please enter both filename and content",
-            "error"
-          );
+        if (!title || !content) {
+          showStatus(statusDiv, "Please enter both title and content", "error");
           return;
         }
+
+        // Generate a unique ID for the paste
+        const pasteId = Date.now().toString();
+        const filename = `${pasteId}_${title.replace(
+          /[^a-zA-Z0-9]/g,
+          "_"
+        )}.txt`;
 
         try {
           const response = await fetch(`${API_BASE}/api/upload`, {
@@ -247,21 +250,17 @@
           });
 
           if (response.ok) {
-            showStatus(
-              statusDiv,
-              "Text file uploaded successfully!",
-              "success"
-            );
-            document.getElementById("filename").value = "";
-            document.getElementById("fileContent").value = "";
-            loadFiles(); // Refresh the file list
+            showStatus(statusDiv, "Paste created successfully!", "success");
+            document.getElementById("pasteTitle").value = "";
+            document.getElementById("pasteContent").value = "";
+            loadPastes(); // Refresh the paste list
           } else {
-            showStatus(statusDiv, "Failed to upload file", "error");
+            showStatus(statusDiv, "Failed to create paste", "error");
           }
         } catch (error) {
           showStatus(
             statusDiv,
-            "Error uploading file: " + error.message,
+            "Error creating paste: " + error.message,
             "error"
           );
         }
@@ -374,51 +373,53 @@
          `;
       }
 
-      async function loadFiles() {
-        const fileListDiv = document.getElementById("fileList");
+      async function loadPastes() {
+        const pasteListDiv = document.getElementById("pasteList");
 
         try {
           const response = await fetch(`${API_BASE}/api/list`);
           if (response.ok) {
             const files = await response.json();
-            console.log("Files received from API:", files);
-            displayFiles(files);
+            console.log("Pastes received from API:", files);
+            displayPastes(files);
           } else {
-            fileListDiv.innerHTML =
-              '<div class="empty-state">Error loading files</div>';
+            pasteListDiv.innerHTML =
+              '<div class="empty-state">Error loading pastes</div>';
           }
         } catch (error) {
-          fileListDiv.innerHTML =
-            '<div class="empty-state">Error loading files: ' +
+          pasteListDiv.innerHTML =
+            '<div class="empty-state">Error loading pastes: ' +
             error.message +
             "</div>";
         }
       }
 
-      function displayFiles(files) {
-        const fileListDiv = document.getElementById("fileList");
+      function displayPastes(files) {
+        const pasteListDiv = document.getElementById("pasteList");
 
         if (!files || files.length === 0) {
-          fileListDiv.innerHTML =
-            '<div class="empty-state">No files uploaded yet</div>';
+          pasteListDiv.innerHTML =
+            '<div class="empty-state">No pastes created yet</div>';
           return;
         }
 
-        fileListDiv.innerHTML = files
-          .map(
-            (filename) => `
+        pasteListDiv.innerHTML = files
+          .map((filename) => {
+            // Extract title from filename (remove timestamp and .txt)
+            const title = filename.replace(/^\d+_/, "").replace(/\.txt$/, "");
+            return `
                 <div class="file-item">
-                    <span class="file-name">${filename}</span>
+                    <span class="file-name">${title}</span>
                     <div class="file-actions">
-                        <button class="btn-small btn-download" onclick="downloadFile('${filename}')">Download</button>
+                        <button class="btn-small btn-download" onclick="viewPaste('${filename}')">View</button>
                     </div>
                 </div>
-            `
-          )
+              `;
+          })
           .join("");
       }
 
-      async function downloadFile(filename) {
+      async function viewPaste(filename) {
         try {
           // Ensure filename is a string
           const cleanFilename = String(filename);
